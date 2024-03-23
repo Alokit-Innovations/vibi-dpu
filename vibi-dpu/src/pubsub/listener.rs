@@ -1,3 +1,4 @@
+use crate::core::trigger::process_trigger;
 use crate::{core::bitbucket::setup::handle_install_bitbucket, utils::user::ProviderEnum};
 use crate::core::github::setup::handle_install_github;
 use crate::core::review::process_review;
@@ -47,6 +48,9 @@ async fn process_message(attributes: &HashMap<String, String>, data_bytes: &Vec<
                     log::info!("[process_message] Webhook callback message processed!");
                 });
             }
+        }
+        "manual_trigger" => {
+            process_trigger(&data_bytes).await;
         }
         _ => {
             log::error!("[process_message] Message type not found for message : {:?}", attributes);

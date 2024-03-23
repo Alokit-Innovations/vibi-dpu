@@ -45,7 +45,7 @@ pub async fn process_review(message_data: &Vec<u8>) {
 	send_hunkmap(&hunkmap_opt, &review, &repo_config, &access_token).await;
 }
 
-async fn send_hunkmap(hunkmap_opt: &Option<HunkMap>, review: &Review, repo_config: &RepoConfig, access_token: &str) {
+pub async fn send_hunkmap(hunkmap_opt: &Option<HunkMap>, review: &Review, repo_config: &RepoConfig, access_token: &str) {
 	if hunkmap_opt.is_none() {
 		log::error!("[send_hunkmap] Empty hunkmap in send_hunkmap");
 		return;
@@ -71,7 +71,7 @@ fn hunk_already_exists(review: &Review) -> bool {
 	log::debug!("[hunk_already_exists] Hunk already in db!");
 	return true;
 }
-async fn process_review_changes(review: &Review) -> Option<HunkMap>{
+pub async fn process_review_changes(review: &Review) -> Option<HunkMap>{
 	let mut prvec = Vec::<PrHunkItem>::new();
 	let fileopt = get_excluded_files(&review);
 	log::debug!("[process_review_changes] fileopt = {:?}", &fileopt);
@@ -102,7 +102,7 @@ async fn process_review_changes(review: &Review) -> Option<HunkMap>{
 	return Some(hunkmap);
 }
 
-async fn commit_check(review: &Review, access_token: &str) {
+pub async fn commit_check(review: &Review, access_token: &str) {
 	if !commit_exists(&review.base_head_commit(), &review.clone_dir()) 
 		|| !commit_exists(&review.pr_head_commit(), &review.clone_dir()) {
 		log::info!("[commit_check] Pulling repository {} for commit history", &review.repo_name());
