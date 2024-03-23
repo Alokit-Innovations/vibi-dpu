@@ -123,7 +123,7 @@ async fn call_access_token_api(installation_id: &str) -> Option<GithubAuthInfo>{
     return Some(gh_auth_info);
 }
 
-async fn get_or_update_auth(review: &Review) -> Option<GithubAuthInfo> {
+async fn get_or_update_auth(review_opt: &Option<Review>) -> Option<GithubAuthInfo> {
 	let authinfo_opt =  get_github_auth_info_from_db();
     if authinfo_opt.is_none() {
         return None;
@@ -149,8 +149,11 @@ async fn get_or_update_auth(review: &Review) -> Option<GithubAuthInfo> {
     let mut new_auth_info = new_auth_info_opt.clone()
         .expect("empty auhtinfo_opt from get_or_update_auth");
     log::debug!("[get_or_update_auth] New github auth info  = {:?}", &new_auth_info);
-    set_git_remote_url(review, new_auth_info.token(),
-        &ProviderEnum::Github.to_string().to_lowercase());
+    if review_opt.is_some() {
+        let review = review_opt.to_owned().expect("Empty review");
+        set_git_remote_url(&review, new_auth_info.token(),
+            &ProviderEnum::Github.to_string().to_lowercase());
+    }
     save_github_auth_info_to_db(&mut new_auth_info);
     return new_auth_info_opt;
 
@@ -169,7 +172,7 @@ fn update_condition_satisfied(expires_at: &str) -> bool{
     return expires_at_ts > now_ts;
 }
 
-async fn app_access_token(review: &Review) -> Option<String>{
+async fn app_access_token(review: &Option<Review>) -> Option<String>{
     let authinfo_opt = get_or_update_auth(review).await;
     log::debug!("[app_access_token] authinfo_opt = {:?}", &authinfo_opt);
     if authinfo_opt.is_none() {
@@ -211,7 +214,7 @@ fn pat_access_token() -> Option<String> {
     return None;
 }
 
-pub async fn gh_access_token(review: &Review) -> Option<String> {
+pub async fn gh_access_token(review: &Option<Review>) -> Option<String> {
     let pat_token_opt = pat_access_token();
     log::debug!("[gh_access_token] pat_token_opt = {:?}", &pat_token_opt);
     if let Some(pat_token) = pat_token_opt {

@@ -120,13 +120,15 @@ pub async fn get_pr_info_github(repo_owner: &str, repo_name: &str, access_token:
     Some(pr_info)
 }
 
-pub async fn get_and_store_pr_info(repo_owner: &str, repo_name: &str, access_token: &str, pr_number: &str) {
+pub async fn get_and_store_pr_info(repo_owner: &str, repo_name: &str, access_token: &str, pr_number: &str) -> Option<PrInfo> {
     let repo_provider = "github";
     if let Some(pr_info) = get_pr_info_github(repo_owner, repo_name, access_token, pr_number).await {
         // If PR information is available, store it in the database
         update_pr_info_in_db(repo_owner, repo_name, &pr_info, pr_number, repo_provider).await;
+        return Some(pr_info);
     } else {
         log::error!("[get_and_store_pr_info] No PR info available for PR number: {:?} repository: {:?} repo_owner{:?}", pr_number, repo_name, repo_owner);
+        return None;
     }
 }
 

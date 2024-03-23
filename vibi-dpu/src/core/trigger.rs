@@ -1,7 +1,14 @@
 use serde_json::Value;
 
-use crate::{core::utils::get_access_token, db::{repo_config::save_repo_config_to_db, review::get_review_from_db}, utils::{repo_config::RepoConfig, review::Review, user::ProviderEnum}};
+use crate::{core::utils::get_access_token, db::{repo_config::save_repo_config_to_db, review::get_review_from_db}, github::prs::get_and_store_pr_info, utils::{repo_config::RepoConfig, review::Review, user::ProviderEnum}};
 
+#[derive(Debug)]
+struct TriggerRepo {
+    repo_name: String,
+    repo_owner: String,
+    repo_provider: String,
+    pr_number: String,
+}
 pub async fn process_trigger(message_data: &Vec<u8>) {
     // parse message
     let parse_res = parse_trigger_msg(message_data);
@@ -10,28 +17,34 @@ pub async fn process_trigger(message_data: &Vec<u8>) {
         log::error!("[process_trigger] Unable to parse message: {:?}", &message_data);
         return;
     }
-    let (review, repo_config) = parse_res.expect("Empty parse_res");
-    log::info!("[process_trigger] Processing PR: {} in repo: {}", &review.id(), &review.repo_name());
+    let (trigger_repo, repo_config) = parse_res.expect("Empty parse_res");
+    log::info!("[process_trigger] Processing PR: {} in repo: {}", &trigger_repo.pr_number, &trigger_repo.repo_name);
     // get access token
-    if review.provider().to_owned() != ProviderEnum::Github.to_string().to_lowercase() {
+    if trigger_repo.repo_provider != ProviderEnum::Github.to_string().to_lowercase() {
         log::error!("[process_trigger] Not implemented for non github providers");
         return;
     }
-    let access_token_opt = get_access_token(&review).await;
+    let access_token_opt = get_access_token(&None, &trigger_repo.repo_provider).await;
 	if access_token_opt.is_none() {
-		log::error!("[process_review] Unable to retrieve access token, failing, message: {:?}",
-			&review);
+		log::error!("[process_trigger] Unable to retrieve access token, failing, message: {:?}",
+			&trigger_repo);
 		return;
 	}
     let access_token = access_token_opt.expect("Empty access_token_opt");
     // get pr information and update review object
+    let pr_info_opt = get_and_store_pr_info(&trigger_repo.repo_owner,
+        &trigger_repo.repo_name, &access_token, &trigger_repo.pr_number).await;
+    if pr_info_opt.is_none() {
+        log::error!("[process_trigger] Unable to get pr info from provider");
+        return;
+    }
     // commit_check
     // process_review_changes
     // send_hunkmap
 }
 
 
-fn parse_trigger_msg(message_data: &Vec<u8>) -> Option<(Review, RepoConfig)> {
+fn parse_trigger_msg(message_data: &Vec<u8>) -> Option<(TriggerRepo, RepoConfig)> {
 	let data_res = serde_json::from_slice::<Value>(&message_data);
 	if data_res.is_err() {
 		let e = data_res.expect_err("No error in data_res");
@@ -50,22 +63,25 @@ fn parse_trigger_msg(message_data: &Vec<u8>) -> Option<(Review, RepoConfig)> {
         return None;
     }
     let repo_config: RepoConfig = repo_config_res.expect("Uncaught error in repo_config_res");
-    let review_opt = get_review_from_db(&repo_name, &repo_owner,
-        &repo_provider, &pr_number);
-    if review_opt.is_none() {
-        log::error!("[parse_trigger_msg] Unable to get review from db: {:?}", &deserialized_data);
-        return None;
-    }
-    let review = review_opt.expect("Empty review_opt");
-	let repo_config_res = serde_json::from_value(deserialized_data["repo_config"].clone());
-	if repo_config_res.is_err() {
-		let e = repo_config_res.expect_err("No error in repo_config_res");
-		log::error!("[parse_review] Unable to deserialze repo_config_res: {:?}", e);
-		let default_config = RepoConfig::default();
-		return Some((review, default_config));
-	}
-	let repo_config = repo_config_res.expect("Uncaught error in repo_config_res");
-	log::debug!("[parse_review] repo_config = {:?}", &repo_config);
-	save_repo_config_to_db(&repo_config, &review.repo_name(), &review.repo_owner(), &review.provider());
-	return Some((review, repo_config));
+    let trigger_repo = TriggerRepo { repo_name, repo_owner, repo_provider, pr_number };
+    return Some((trigger_repo, repo_config));
+    // get_and_store_pr_info(&repo_owner, &repo_name, &access_token, &pr_number);
+    // let review_opt = get_review_from_db(&repo_name, &repo_owner,
+    //     &repo_provider, &pr_number);
+    // if review_opt.is_none() {
+    //     log::error!("[parse_trigger_msg] Unable to get review from db: {:?}", &deserialized_data);
+    //     return None;
+    // }
+    // let review = review_opt.expect("Empty review_opt");
+	// let repo_config_res = serde_json::from_value(deserialized_data["repo_config"].clone());
+	// if repo_config_res.is_err() {
+	// 	let e = repo_config_res.expect_err("No error in repo_config_res");
+	// 	log::error!("[parse_review] Unable to deserialze repo_config_res: {:?}", e);
+	// 	let default_config = RepoConfig::default();
+	// 	return Some((review, default_config));
+	// }
+	// let repo_config = repo_config_res.expect("Uncaught error in repo_config_res");
+	// log::debug!("[parse_review] repo_config = {:?}", &repo_config);
+	// save_repo_config_to_db(&repo_config, &review.repo_name(), &review.repo_owner(), &review.provider());
+	// return Some((review, repo_config));
 }

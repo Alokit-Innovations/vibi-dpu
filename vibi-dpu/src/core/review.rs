@@ -32,7 +32,7 @@ pub async fn process_review(message_data: &Vec<u8>) {
 		return;
 	}
 	log::info!("[process_review] Processing PR : {}", &review.id());
-	let access_token_opt = get_access_token(&review).await;
+	let access_token_opt = get_access_token(&Some(review.clone()), review.provider()).await;
 
 	if access_token_opt.is_none() {
 		log::error!("[process_review] Unable to retrieve access token, failing, message: {:?}",

@@ -50,7 +50,7 @@ pub async fn get_access_token_from_bitbucket(code: &str) -> Option<BitbucketAuth
     return Some(response_json);
 }
 
-pub async fn refresh_git_auth(review: &Review) -> Option<String>{
+pub async fn refresh_git_auth(review: &Option<Review>) -> Option<String>{
 	let authinfo_opt =  bitbucket_auth_info();
     if authinfo_opt.is_none() {
         return None;
@@ -66,7 +66,7 @@ pub async fn refresh_git_auth(review: &Review) -> Option<String>{
     return Some(access_token);
 }
 
-pub async fn update_access_token(auth_info: &BitbucketAuthInfo, review: &Review) -> Option<BitbucketAuthInfo> {
+pub async fn update_access_token(auth_info: &BitbucketAuthInfo, review_opt: &Option<Review>) -> Option<BitbucketAuthInfo> {
     let repo_provider = "bitbucket".to_string();
     let now = SystemTime::now();
     let now_secs = now.duration_since(UNIX_EPOCH).expect("Time went backwards").as_secs();
@@ -88,7 +88,10 @@ pub async fn update_access_token(auth_info: &BitbucketAuthInfo, review: &Review)
         .expect("empty auhtinfo_opt from update_access_token");
     log::debug!("[update_access_token] New auth info  = {:?}", &new_auth_info);
     let access_token = new_auth_info.access_token().to_string();
-    set_git_remote_url(review, &access_token, &repo_provider);
+    if review_opt.is_some() {
+        let review = review_opt.to_owned().expect("Empty review");
+        set_git_remote_url(&review, &access_token, &repo_provider);
+    }
     save_bitbucket_auth_info_to_db(&mut new_auth_info);
     return new_auth_info_opt;
 }

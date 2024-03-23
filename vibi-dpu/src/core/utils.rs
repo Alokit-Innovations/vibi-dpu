@@ -139,9 +139,9 @@ pub async fn get_handles_from_server(review: &Review) -> Option<HashMap<String, 
     Some(aliases_map)
 }
 
-pub async fn get_access_token (review: &Review) -> Option<String> {
+pub async fn get_access_token (review: &Option<Review>, provider: &str) -> Option<String> {
 	let access_token: String;
-	if review.provider().to_string() == ProviderEnum::Bitbucket.to_string().to_lowercase() {
+	if provider == ProviderEnum::Bitbucket.to_string().to_lowercase() {
 		let access_token_opt = bitbucket::auth::refresh_git_auth(review).await;
 		if access_token_opt.is_none() {
 			log::error!("[get_access_token] Unable to get access token, review: {:?}",
@@ -150,7 +150,7 @@ pub async fn get_access_token (review: &Review) -> Option<String> {
 		}
 		access_token = access_token_opt.expect("Empty access_token_opt");
 	} 
-	else if review.provider().to_string() == ProviderEnum::Github.to_string().to_lowercase(){
+	else if provider == ProviderEnum::Github.to_string().to_lowercase(){
 		let access_token_opt = github::auth::gh_access_token(review).await;
 		if access_token_opt.is_none() {
 			log::error!("[get_access_token] Unable to get access token, review: {:?}",

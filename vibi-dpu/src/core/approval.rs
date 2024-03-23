@@ -37,7 +37,7 @@ pub async fn process_approval(deserialised_msg_data: &Value, repo_config_val: &V
     }
     let review = review_opt.expect("Empty review_opt");
 
-    let access_token= get_access_token(&review).await;
+    let access_token= get_access_token(&Some(review.clone()), &repo_provider).await;
 	if access_token.is_none(){
 		log::error!("[process_approval] no final access token opt");
 		return;
